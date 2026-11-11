@@ -1,12 +1,12 @@
-# STL Konturzeichner
+# Object Tracer
 
-Browser-Tool, das STL-Dateien als technische Linienzeichnung darstellt und als PNG, GIF (Spin-Animation) oder Lottie-JSON exportiert. Alles läuft clientseitig, die STL verlässt den Browser nicht.
+Browser-Tool, das STL-Dateien in saubere Linienzeichnungen verwandelt und als PNG, animiertes GIF oder Lottie exportiert. Läuft komplett clientseitig, die Modelle verlassen nie den Browser.
 
 ## Lokal starten
 
 ```bash
-docker build -t stl-konturzeichner .
-docker run -p 8080:80 stl-konturzeichner
+docker build -t object-tracer .
+docker run -p 8080:80 object-tracer
 ```
 
 Dann `http://localhost:8080` öffnen. Ohne Docker reicht auch `npx serve public`.
