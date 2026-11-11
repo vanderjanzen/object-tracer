@@ -48,6 +48,12 @@ h2{margin:0 0 2px;font-family:var(--f-mono);font-size:10.5px;text-transform:uppe
 .row label{flex:1;min-width:0}
 output,.mono{font-family:var(--f-mono);font-size:12px;font-variant-numeric:tabular-nums}
 .row output{color:var(--muted)}
+.num{display:inline-flex;align-items:baseline;gap:3px;font-family:var(--f-mono);font-size:12px;color:var(--muted);border:1px solid transparent;border-radius:var(--r-sm);padding:1px 2px 1px 0;cursor:text;transition:border-color .15s,background .15s,color .15s}
+.num:hover{border-color:var(--rule-strong);background:var(--raise);color:var(--ink)}
+.num:focus-within{border-color:var(--accent);background:var(--raise);color:var(--ink);box-shadow:0 0 10px color-mix(in srgb,var(--accent) 25%,transparent)}
+.num input{font:inherit;color:inherit;background:transparent;border:0;padding:0 0 0 4px;margin:0;text-align:right;font-variant-numeric:tabular-nums;outline:none;cursor:text}
+.num input:focus-visible{outline:none}
+.num span{padding-right:4px}
 
 /* Schieberegler: dünne Spur, gefüllter Anteil in Akzentfarbe, leuchtender pulsierender Knopf */
 input[type=range]{--p:50%;-webkit-appearance:none;appearance:none;width:100%;height:18px;margin:0;background:transparent;cursor:pointer}
@@ -184,10 +190,10 @@ progress::-moz-progress-bar{background:var(--accent)}
       <h2>Linien</h2>
       <div class="row"><label for="angle">Kantenwinkel</label><output id="oAngle">30°</output></div>
       <input type="range" id="angle" min="1" max="90" step="1" value="30">
-      <div class="row"><label for="wOut">Umriss</label><output id="oOut">2.5 px</output></div>
-      <input type="range" id="wOut" min="0.5" max="10" step="0.5" value="2.5">
-      <div class="row"><label for="wIn">Innenkanten</label><output id="oIn">1.2 px</output></div>
-      <input type="range" id="wIn" min="0" max="8" step="0.1" value="1.2">
+      <div class="row"><label for="wOut">Umriss</label><output id="oOut">1 px</output></div>
+      <input type="range" id="wOut" min="0.25" max="10" step="0.25" value="1">
+      <div class="row"><label for="wIn">Innenkanten</label><output id="oIn">1.5 px</output></div>
+      <input type="range" id="wIn" min="0" max="8" step="0.1" value="1.5">
       <div class="row"><label for="hidden">Verdeckte Kanten (gestrichelt)</label><input type="checkbox" id="hidden"></div>
       <div class="row"><label for="lineCol">Linienfarbe</label><input type="color" id="lineCol" value="#161616"></div>
     </section>
@@ -310,8 +316,8 @@ const occluder = new THREE.Mesh(new THREE.BufferGeometry(), occMat);
 occluder.renderOrder = 0;
 scene.add(occluder);
 
-const matOut = new LineMaterial({ color: 0x161616, linewidth: 2.5 });
-const matIn = new LineMaterial({ color: 0x161616, linewidth: 1.2 });
+const matOut = new LineMaterial({ color: 0x161616, linewidth: 1 });
+const matIn = new LineMaterial({ color: 0x161616, linewidth: 1.5 });
 const matHid = new LineMaterial({ color: 0x161616, linewidth: 1, dashed: true, transparent: true, opacity: 0.45, depthTest: false });
 const linesHid = new LineSegments2(new LineSegmentsGeometry(), matHid); linesHid.renderOrder = 1;
 const linesIn = new LineSegments2(new LineSegmentsGeometry(), matIn); linesIn.renderOrder = 2;
@@ -319,7 +325,7 @@ const linesOut = new LineSegments2(new LineSegmentsGeometry(), matOut); linesOut
 [linesHid, linesIn, linesOut].forEach(o => { o.frustumCulled = false; scene.add(o); });
 
 const S = {
-  topo: null, radius: 1, name: 'beispiel', angle: 30, wOut: 2.5, wIn: 1.2,
+  topo: null, radius: 1, name: 'beispiel', angle: 30, wOut: 1, wIn: 1.5,
   hidden: false, bg: 'white', view: 'iso', lineScale: DPR
 };
 
@@ -1108,6 +1114,43 @@ document.querySelectorAll('input[type=range]').forEach(el => { rangeFill(el); el
     apply(b.dataset.t); try { localStorage.setItem('theme', b.dataset.t); } catch (e) {}
   });
 })();
+
+/* ---------- Zahlenwerte der Regler direkt eintippen ---------- */
+[['angle','oAngle','°'],['wOut','oOut','px'],['wIn','oIn','px'],['speed','oSpeed','°/s']].forEach(([id, out, unit]) => {
+  const range = $(id), o = $(out);
+  const dec = (String(range.step).split('.')[1] || '').length;
+  const fmt = v => (+v).toLocaleString('de-DE', { maximumFractionDigits: Math.max(dec, 2) });
+  const box = document.createElement('span'); box.className = 'num'; box.addEventListener('mousedown', e => { if (e.target !== inp) { e.preventDefault(); inp.focus(); } });
+  const inp = document.createElement('input');
+  inp.type = 'text'; inp.inputMode = 'decimal'; inp.autocomplete = 'off'; inp.spellcheck = false;
+  inp.setAttribute('aria-label', (range.labels?.[0]?.textContent || id) + ' in ' + unit);
+  const u = document.createElement('span'); u.textContent = unit;
+  box.append(inp, u); o.after(box); o.hidden = true;
+  const sync = () => { inp.value = fmt(range.value); inp.style.width = Math.max(2, inp.value.length) + 'ch'; };
+  const commit = () => {
+    const v = parseFloat(inp.value.replace(',', '.'));
+    if (Number.isFinite(v)) {
+      range.value = Math.min(+range.max, Math.max(+range.min, v));
+      range.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    sync();
+  };
+  range.addEventListener('input', sync);
+  inp.addEventListener('focus', () => inp.select());
+  inp.addEventListener('input', () => { inp.style.width = Math.max(2, inp.value.length) + 'ch'; });
+  inp.addEventListener('change', commit);
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { commit(); inp.blur(); }
+    else if (e.key === 'Escape') { sync(); inp.blur(); }
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      const st = (+range.step || 1) * (e.shiftKey ? 10 : 1);
+      inp.value = String((parseFloat(inp.value.replace(',', '.')) || 0) + (e.key === 'ArrowUp' ? st : -st));
+      commit(); inp.select();
+    }
+  });
+  sync();
+});
 </script>
 
 </body></html>
